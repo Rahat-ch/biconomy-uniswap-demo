@@ -109,7 +109,7 @@ const Connect = ({ smartAccount, setSmartAccount, provider, setProvider}) => {
   })
   return (
     <>
-    { smartAccount && <SideMenu isOpen={isOpen} setIsOpen={setIsOpen} smartAccount={smartAccount} logout={logout} />}
+    { smartAccount && <SideMenu isOpen={isOpen} setIsOpen={setIsOpen} smartAccount={smartAccount} logout={logout} userInfo={userInfo} />}
     {smartAccount == null && !loading && <button onClick={() => login()} className='bg-zinc-900 text-zinc-300 w-fit p-2 px-3 rounded-l-lg'>Connect to Web3</button>}
     {smartAccount !== null && (
       <>

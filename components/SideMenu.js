@@ -4,10 +4,18 @@ import EthBadge from './EthBadge';
 import { ChainId } from '@biconomy/core-types';
 import TokenBalance from './TokenBalance';
 import { ethers } from 'ethers';
+import Transak from '@biconomy/transak';
 
-function SideMenu({ isOpen, setIsOpen, smartAccount, logout}) {
+function SideMenu({ isOpen, setIsOpen, smartAccount, logout, userInfo}) {
   const [value, setValue] = useState(0)
   const [balances, setBalances] = useState(null);
+  const transak = new Transak('PRODUCTION', {
+    walletAddress: smartAccount.address,
+    userData: {
+      firstName: userInfo?.name || '',
+      email: userInfo?.email || '',
+    },
+  });
   const handleLogout = () => {
     setIsOpen(false)
     logout()
@@ -103,7 +111,7 @@ function SideMenu({ isOpen, setIsOpen, smartAccount, logout}) {
                     <div className="text-white text-2xl m-4">
                       ${value.toFixed(2)}
                     </div>
-                    <button className="bg-blue-500 mb-3 text-white py-2 px-4 rounded-full w-full">
+                    <button onClick={() => transak.init()} className="bg-blue-500 mb-3 text-white py-2 px-4 rounded-full w-full">
                     Buy Crypto
                     </button>
                     <button onClick={() => handleLogout()} className="bg-blue-500 text-white py-2 px-4 rounded-full w-full">

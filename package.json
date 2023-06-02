@@ -11,6 +11,7 @@
   "dependencies": {
     "@biconomy/core-types": "^2.0.1",
     "@biconomy/smart-account": "^2.0.1",
+    "@biconomy/transak": "^2.0.0",
     "@biconomy/web3-auth": "^2.0.0",
     "@headlessui/react": "^1.7.15",
     "@heroicons/react": "^1.0.6",
