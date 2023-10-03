@@ -13,8 +13,15 @@ import { ethers } from 'ethers'
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import erc20Abi from '../utils/erc20abi.json';
+import { 
+  IPaymaster, 
+  BiconomyPaymaster,  
+  IHybridPaymaster,
+  PaymasterMode,
+  SponsorUserOperationDto, 
+} from '@biconomy/paymaster'
 
-const SwapComponent = ({ smartAccount, provider }) => {
+const SwapComponent = ({ smartAccount }) => {
   const [srcToken, setSrcToken] = useState(USDC)
   const [destToken, setDestToken] = useState(WETH)
 
@@ -92,7 +99,6 @@ const SwapComponent = ({ smartAccount, provider }) => {
     setOutputValue("Swap for WETH")
   }, [inputValue])
 
-
   return (
     <div className='bg-zinc-900 w-[35%] p-4 px-6 rounded-xl'>
       <ToastContainer
@@ -137,7 +143,8 @@ const SwapComponent = ({ smartAccount, provider }) => {
   )
 
   async function handleSwap() {
-    
+    console.log("handle swap")
+    const provider = new ethers.providers.JsonRpcProvider(`https://polygon-mumbai.infura.io/v3/${process.env.NEXT_PUBLIC_INFURA_API_KEY}`)
     const poolAddress = "0x45dDa9cb7c25131DF268515131f647d726f50608" // WETH/USDC
     const swapRouterAddress = '0xE592427A0AEce92De3Edee1F18E0157C05861564'
     const tokens = [
@@ -156,12 +163,13 @@ const SwapComponent = ({ smartAccount, provider }) => {
         progress: undefined,
         theme: "dark",
         });
+      console.log("before contract")
       const poolContract = new ethers.Contract(
         poolAddress,
         IUniswapV3PoolABI,
         provider
       )
-  
+        console.log("after contract")
       const immutables = await getPoolImmutables(poolContract)
       const state = await getPoolState(poolContract)
       console.log({ immutables, state})
@@ -190,29 +198,111 @@ const SwapComponent = ({ smartAccount, provider }) => {
       to: immutables.token0,
       data: approvalTrx.data,
       }
+    
+    const address = await smartAccount.getAccountAddress()
     const params = {
       tokenIn: immutables.token0,
       tokenOut: immutables.token1,
       fee: immutables.fee,
-      recipient: smartAccount.address,
+      recipient: address,
       deadline: Math.floor(Date.now() / 1000) + (60 * 10),
       amountIn: amountIn,
       amountOutMinimum: 0,
       sqrtPriceLimitX96: 0,
     }
-    const swapTrx = await swapRouterContract.populateTransaction.exactInputSingle(params,  {
-      gasLimit: ethers.utils.hexlify(1000000)
-    })
+    const swapTrx = await swapRouterContract.populateTransaction.exactInputSingle(params)
+    // {
+    //   gasLimit: ethers.utils.hexlify(1000000)
+    // }
     const tx2 = {
       to: swapRouterAddress,
       data: swapTrx.data
     }
+
+    const partialUserOp = await smartAccount.buildUserOp([ tx1, tx2 ]);
+    const biconomyPaymaster = smartAccount.paymaster;
+
+    let finalUserOp = partialUserOp;
+    console.log({ finalUserOp })
+    console.log({ partialUserOp })
+    console.log("before fee quotes response")
+    const feeQuotesResponse = await biconomyPaymaster.getPaymasterFeeQuotesOrData(
+      partialUserOp,
+      {
+          mode: PaymasterMode.ERC20,
+          smartAccountInfo: {
+            name: 'BICONOMY',
+            version: '2.0.0'
+          },
+          tokenList: [],
+      }
+      ); 
+      console.log("after fee quote")
+      const feeQuotes = feeQuotesResponse.feeQuotes;
+      console.log({ feeQuotes })
+      function findUSDCObject(data) {
+        return data.find(item => item.symbol === "USDC");
+    }
+      const spender = feeQuotesResponse.tokenPaymasterAddress || "";
+      const usdcFeeQuotes = findUSDCObject(feeQuotes)
+      console.log({ usdcFeeQuotes })
+      finalUserOp = await smartAccount.buildTokenPaymasterUserOp(partialUserOp, {
+        feeQuote: usdcFeeQuotes,
+        spender: spender,
+        maxApproval: false,
+    });
+    
+    let paymasterServiceData = {
+        mode: PaymasterMode.ERC20,
+        feeTokenAddress: usdcFeeQuotes.tokenAddress,
+        calculateGasLimits: true, // Always recommended and especially when using token paymaster
+    };
+
+    try{
+      const paymasterAndDataWithLimits =
+        await biconomyPaymaster.getPaymasterAndData(
+          finalUserOp,
+          paymasterServiceData
+        );
+      finalUserOp.paymasterAndData = paymasterAndDataWithLimits.paymasterAndData;
   
-    const txResponse = await smartAccount.sendTransactionBatch({ transactions: [tx1, tx2]})
-    const txHash = await txResponse.wait();
-    console.log({txHash})
-    console.log({txResponse})
-    const txLink = `https://polygonscan.com/tx/${txHash.transactionHash}`
+      // below code is only needed if you sent the flag calculateGasLimits = true
+      if (
+        paymasterAndDataWithLimits.callGasLimit &&
+        paymasterAndDataWithLimits.verificationGasLimit &&
+        paymasterAndDataWithLimits.preVerificationGas
+      ) {
+  
+        // Returned gas limits must be replaced in your op as you update paymasterAndData.
+        // Because these are the limits paymaster service signed on to generate paymasterAndData
+        // If you receive AA34 error check here..   
+  
+        finalUserOp.callGasLimit = paymasterAndDataWithLimits.callGasLimit;
+        finalUserOp.verificationGasLimit =
+          paymasterAndDataWithLimits.verificationGasLimit;
+        finalUserOp.preVerificationGas =
+          paymasterAndDataWithLimits.preVerificationGas;
+      }
+    } catch (e) {
+      console.log("error received ", e);
+    }
+
+    try {
+      const paymasterAndDataWithLimits =
+          await biconomyPaymaster.getPaymasterAndData(
+              finalUserOp,
+              paymasterServiceData
+          );
+      finalUserOp.paymasterAndData = paymasterAndDataWithLimits.paymasterAndData;
+  } catch (e) {
+      console.log("error received ", e);
+  }
+
+  try {
+    const userOpResponse = await smartAccount.sendUserOp(finalUserOp);
+    const transactionDetails = await userOpResponse.wait(1);
+    console.log("txHash", transactionDetails.receipt.transactionHash);
+    const txLink = `https://polygonscan.com/tx/${transactionDetails.receipt.transactionHash}`
     toast.success(<a href={txLink} target='_blank' rel="noreferrer">Success! Click here for your transaction!</a>, {
       position: "top-right",
       autoClose: 15000,
@@ -223,6 +313,10 @@ const SwapComponent = ({ smartAccount, provider }) => {
       progress: undefined,
       theme: "dark",
       });
+} catch (e) {
+    console.log("error received ", e);
+}
+
     } catch (error) {
       console.log(error)
     }

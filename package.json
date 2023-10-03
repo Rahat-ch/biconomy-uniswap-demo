@@ -9,10 +9,14 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@biconomy/core-types": "^2.0.1",
-    "@biconomy/smart-account": "^2.0.1",
-    "@biconomy/transak": "^2.0.0",
-    "@biconomy/web3-auth": "^2.0.0",
+    "@biconomy/account": "^3.1.0",
+    "@biconomy/bundler": "^3.1.0",
+    "@biconomy/common": "^3.1.0",
+    "@biconomy/core-types": "^3.1.0",
+    "@biconomy/modules": "^3.1.0",
+    "@biconomy/particle-auth": "^3.1.0",
+    "@biconomy/paymaster": "^3.1.0",
+    "@biconomy/transak": "^3.1.0",
     "@headlessui/react": "^1.7.15",
     "@heroicons/react": "^1.0.6",
     "@nextui-org/react": "^1.0.0-beta.9",

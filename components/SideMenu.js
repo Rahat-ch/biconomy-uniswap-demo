@@ -6,11 +6,11 @@ import TokenBalance from './TokenBalance';
 import { ethers } from 'ethers';
 import Transak from '@biconomy/transak';
 
-function SideMenu({ isOpen, setIsOpen, smartAccount, logout, userInfo}) {
+function SideMenu({ isOpen, setIsOpen, smartAccount, logout, userInfo, address}) {
   const [value, setValue] = useState(0)
   const [balances, setBalances] = useState(null);
   const transak = new Transak('PRODUCTION', {
-    walletAddress: smartAccount.address,
+    walletAddress: address,
     userData: {
       firstName: userInfo?.name || '',
       email: userInfo?.email || '',
@@ -24,12 +24,12 @@ function SideMenu({ isOpen, setIsOpen, smartAccount, logout, userInfo}) {
     const balanceParams =
       {
         chainId: ChainId.POLYGON_MAINNET, // chainId of your choice
-        eoaAddress: smartAccount.address || '',
+        eoaAddress: address,
         tokenAddresses: [], 
       };
 
-
-      const balFromSdk = await smartAccount?.getAlltokenBalances(balanceParams);
+      console.log(smartAccount.getAllTokenBalances)
+      const balFromSdk = await smartAccount?.getAllTokenBalances(balanceParams);
       const usdBalFromSdk = await smartAccount?.getTotalBalanceInUsd(balanceParams);
       
       console.info("getAlltokenBalances", balFromSdk.data);
@@ -107,7 +107,7 @@ function SideMenu({ isOpen, setIsOpen, smartAccount, logout, userInfo}) {
                     </div>
 
                     <div className='m-2' >
-                    <EthBadge address={smartAccount.address} />
+                    <EthBadge address={address} />
                     <div className="text-white text-2xl m-4">
                       ${value.toFixed(2)}
                     </div>

@@ -1,10 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import TokenBalance from './TokenBalance'
 
-import { ConnectButton } from '@rainbow-me/rainbowkit'
-
-import { useAccount } from 'wagmi'
-
 import toast, { Toaster } from 'react-hot-toast'
 import NavItems from './NavItems'
 import dynamic from "next/dynamic";
